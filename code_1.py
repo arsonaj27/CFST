@@ -3,6 +3,8 @@ import math
 import csv
 import os
 import matplotlib.pyplot as plt
+import pandas as pd
+
 
 def get_parameters():
     parameters = {}
@@ -335,11 +337,15 @@ def calculate_stress_from_csv(csv_filename):
 # Example usage
 csv_filename = 'D:\\New Research\\strain_value.csv'
 strain_values, stresses = calculate_stress_from_csv(csv_filename)
+
+df = pd.DataFrame({"strain_values": strain_values, "stresses": stresses})
+df.to_csv("strain_stress_value.csv", index=False)
+
 for strain, stress in zip(strain_values, stresses):
-    if stress is not None:
-        print(f"For strain value {strain}, stress is: {stress:.6f}")
-    else:
-        print(f"Invalid input for strain value {strain}. Please check the parameters.")
+     if stress is not None:
+         print(f"For strain value {strain}, stress is: {stress:.3f}")
+     else:
+         print(f"Invalid input for strain value {strain}. Please check the parameters.")
         
 # Plot stress-strain curve
 plt.figure(figsize=(10, 6))
@@ -349,3 +355,36 @@ plt.xlabel('Strain')
 plt.ylabel('Stress')
 plt.grid(True)
 plt.show()
+
+def calculate_concrete_stress_strain(X, fr, fcc_prime, epsilon_cc_prime, A, B, Es):
+    if X > 1 and sigma <= fr:
+        return fr
+    elif X > 1 and sigma > fr:
+        return (((A*X) + (B*X**2)) / (1 + ((A - 2) * X) + ((B + 1) * X**2))) * fcc_prime
+    elif X <= 1 and sigma > fr:
+        return (((A*X) + (B*X**2)) / (1 + ((A - 2) * X) + ((B + 1) * X**2))) * fcc_prime
+    else:
+        return None
+
+# Assuming calculate_concrete_parameters returns a tuple with multiple values
+concrete_params = calculate_concrete_parameters(parameters, A_cc, A_s, eu=1.0)
+
+# Accessing the specific values from the tuple
+A = float(concrete_params[0])
+B = float(concrete_params[1])
+epsilon_cc_prime = float(concrete_params[2])
+fcc_prime = float(concrete_params[3])
+fr = float(concrete_params[4])
+Es =float( parameters['Es'])
+sigma = calculate_sigma(strain, parameters, A_s, A_total, A_cc) # Calling sigma from calculate_sigma
+steel_params = calculate_steel_parameters(parameters, A_s, A_total, A_cc, Es)
+eu = steel_params['Calculate Ultimate Strain']
+concrete_params = calculate_concrete_parameters(parameters, A_cc, A_s)
+epsilon_cc_prime = concrete_params[2]  # Accessing the fourth element (index 2) from the tuple
+X = eu / epsilon_cc_prime  # Calculating X from eu and epsilon_cc_prime
+
+result = calculate_concrete_stress_strain(X, fr, fcc_prime, epsilon_cc_prime, A, B, Es)
+if result is not None:
+    print(f"The calculated value is: {result:.3f}")
+else:
+    print("Conditions are not met.")
