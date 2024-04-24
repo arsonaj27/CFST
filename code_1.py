@@ -356,15 +356,18 @@ plt.ylabel('Stress')
 plt.grid(True)
 plt.show()
 
+
+# Function to calculate concrete stress
 def calculate_concrete_stress_strain(X, fr, fcc_prime, epsilon_cc_prime, A, B, Es):
-    if X > 1 and sigma <= fr:
-        return fr
-    elif X > 1 and sigma > fr:
-        return (((A*X) + (B*X**2)) / (1 + ((A - 2) * X) + ((B + 1) * X**2))) * fcc_prime
-    elif X <= 1 and sigma > fr:
-        return (((A*X) + (B*X**2)) / (1 + ((A - 2) * X) + ((B + 1) * X**2))) * fcc_prime
+    X = strain/epsilon_cc_prime
+    if outer_diameter_thickness_ratio > 5:
+        Y = 0
     else:
-        return None
+        Y = (((A*X) + (B*X**2)) / (1 + ((A - 2) * X) + ((B + 1) * X**2)))
+    if X > 1 and Y < (fr/fcc_prime):
+        return fr
+    else:
+        return (Y * fr)
 
 # Assuming calculate_concrete_parameters returns a tuple with multiple values
 concrete_params = calculate_concrete_parameters(parameters, A_cc, A_s, eu=1.0)
@@ -375,16 +378,34 @@ B = float(concrete_params[1])
 epsilon_cc_prime = float(concrete_params[2])
 fcc_prime = float(concrete_params[3])
 fr = float(concrete_params[4])
-Es =float( parameters['Es'])
-sigma = calculate_sigma(strain, parameters, A_s, A_total, A_cc) # Calling sigma from calculate_sigma
-steel_params = calculate_steel_parameters(parameters, A_s, A_total, A_cc, Es)
-eu = steel_params['Calculate Ultimate Strain']
-concrete_params = calculate_concrete_parameters(parameters, A_cc, A_s)
-epsilon_cc_prime = concrete_params[2]  # Accessing the fourth element (index 2) from the tuple
-X = eu / epsilon_cc_prime  # Calculating X from eu and epsilon_cc_prime
+Es = float(parameters['Es'])
 
-result = calculate_concrete_stress_strain(X, fr, fcc_prime, epsilon_cc_prime, A, B, Es)
-if result is not None:
-    print(f"The calculated value is: {result:.3f}")
-else:
-    print("Conditions are not met.")
+# Read strain values from strain.csv
+strains = []
+with open("D:\\New Research\\strain_value.csv", 'r', encoding='utf-8-sig') as file:
+    reader = csv.reader(file)
+    next(reader)  # Skip the header row
+    for row in reader:
+        strain = float(row[0])
+        strains.append(strain)
+
+# Calculate concrete stress for each strain
+concrete_stresses = []
+for strain_value in strains:
+    X = strain_value / epsilon_cc_prime
+    result = calculate_concrete_stress_strain(X, fr, fcc_prime, epsilon_cc_prime, A, B, Es)
+    concrete_stresses.append(result)
+
+# Save strain and concrete stress values to a new CSV file
+output_file_path = 'D:\\New Research\\concrete_stress.csv'
+with open(output_file_path, 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(['Strain', 'Concrete Stress'])  # Write header
+    for strain, stress in zip(strains, concrete_stresses):
+        writer.writerow([strain, stress])
+
+print(f"Data saved to {output_file_path}")
+
+# Display each strain and its corresponding concrete stress
+for strain, stress in zip(strains, concrete_stresses):
+    print(f'Strain: {strain}, Concrete Stress: {stress:.3f}')
